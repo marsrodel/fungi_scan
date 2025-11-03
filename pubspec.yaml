@@ -11,10 +11,13 @@ dependencies:
     sdk: flutter
   google_fonts: ^6.1.0
   camera: ^0.10.5+2
+  image_picker: ^1.1.2
+  image_picker_for_web: ^3.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -22,3 +25,21 @@ flutter:
     - assets/background.jpeg
     - assets/labels.txt
     - assets/model_unquant.tflite
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/iconapp.png
+  web:
+    generate: true
+    image_path: assets/iconapp.png
+    favicon: true
+  windows:
+    generate: true
+    image_path: assets/iconapp.png
+  macos:
+    generate: true
+    image_path: assets/iconapp.png
+  linux:
+    generate: true
+    image_path: assets/iconapp.png

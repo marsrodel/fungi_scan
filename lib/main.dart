@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:camera/camera.dart';
 import 'dart:math' as math;
 import 'dart:ui';
+import 'package:image_picker/image_picker.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +16,7 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Fungi Variety',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primaryColor: Colors.red, useMaterial3: true),
       home: const HomePage(),
@@ -99,8 +101,55 @@ class PolkaDotPainter extends CustomPainter {
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final ImagePicker _picker = ImagePicker();
+  bool _picking = false;
+
+  Future<void> _pickImage() async {
+    if (_picking) {
+      return;
+    }
+    setState(() {
+      _picking = true;
+    });
+    try {
+      final picked = await _picker.pickImage(source: ImageSource.gallery);
+      if (!mounted) {
+        return;
+      }
+      if (picked != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Selected image: ${picked.name}'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to pick image: $e'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _picking = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -325,15 +374,26 @@ class HomePage extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                           ),
-                          onPressed: () {},
+                          onPressed: _picking ? null : _pickImage,
                           icon: const Icon(Icons.upload_file_outlined),
-                          label: Text(
-                            'Upload Photo',
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          label: _picking
+                              ? SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  'Upload Photo',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
