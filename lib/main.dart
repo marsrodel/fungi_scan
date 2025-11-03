@@ -112,7 +112,7 @@ class HomePage extends StatelessWidget {
             Text(
               'Fungi Scan',
               style: GoogleFonts.titanOne(
-                fontSize: 48,
+                fontSize: 40,
                 foreground: Paint()
                   ..style = PaintingStyle.stroke
                   ..strokeWidth = 5
@@ -122,7 +122,7 @@ class HomePage extends StatelessWidget {
             Text(
               'Fungi Scan',
               style: GoogleFonts.titanOne(
-                fontSize: 48,
+                fontSize: 40,
                 color: Colors.white,
                 shadows: [
                   Shadow(
@@ -188,38 +188,156 @@ class HomePage extends StatelessWidget {
               ),
             ),
           ),
-          Center(
-            child: GestureDetector(
-              onTap: () {
-                Navigator.of(context).push(
-                  PageRouteBuilder(
-                    transitionDuration: const Duration(milliseconds: 400),
-                    pageBuilder: (context, animation, secondaryAnimation) =>
-                        const CameraPage(),
-                    transitionsBuilder:
-                        (context, animation, secondaryAnimation, child) {
-                          final tween = Tween(
-                            begin: const Offset(0, 1),
-                            end: Offset.zero,
-                          ).chain(CurveTween(curve: Curves.easeInOut));
-                          return SlideTransition(
-                            position: animation.drive(tween),
-                            child: child,
-                          );
-                        },
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 80, left: 24, right: 24),
+              child: FractionallySizedBox(
+                widthFactor: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.camera_alt,
-                  size: 64,
-                  color: Theme.of(context).primaryColor,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 32,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '🍄',
+                            style: TextStyle(
+                              fontSize: 40,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Fungi Scan',
+                        style: GoogleFonts.titanOne(
+                          fontSize: 32,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Scan or upload photos to see which fungi species you have found.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          color: Colors.black87,
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 18,
+                              horizontal: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              PageRouteBuilder(
+                                transitionDuration: const Duration(
+                                  milliseconds: 400,
+                                ),
+                                pageBuilder:
+                                    (context, animation, secondaryAnimation) =>
+                                        const CameraPage(),
+                                transitionsBuilder:
+                                    (
+                                      context,
+                                      animation,
+                                      secondaryAnimation,
+                                      child,
+                                    ) {
+                                      final tween =
+                                          Tween(
+                                            begin: const Offset(0, 1),
+                                            end: Offset.zero,
+                                          ).chain(
+                                            CurveTween(curve: Curves.easeInOut),
+                                          );
+                                      return SlideTransition(
+                                        position: animation.drive(tween),
+                                        child: child,
+                                      );
+                                    },
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.camera_alt_outlined),
+                          label: Text(
+                            'Scan Mushroom',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Theme.of(context).primaryColor,
+                            side: BorderSide(
+                              color: Theme.of(context).primaryColor,
+                              width: 2,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 18,
+                              horizontal: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          onPressed: () {},
+                          icon: const Icon(Icons.upload_file_outlined),
+                          label: Text(
+                            'Upload Photo',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
