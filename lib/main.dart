@@ -191,7 +191,7 @@ class HomePage extends StatelessWidget {
           Align(
             alignment: Alignment.topCenter,
             child: Padding(
-              padding: const EdgeInsets.only(top: 80, left: 24, right: 24),
+              padding: const EdgeInsets.only(top: 40, left: 24, right: 24),
               child: FractionallySizedBox(
                 widthFactor: 1,
                 child: Container(
@@ -299,7 +299,7 @@ class HomePage extends StatelessWidget {
                           },
                           icon: const Icon(Icons.camera_alt_outlined),
                           label: Text(
-                            'Scan Mushroom',
+                            'Scan Fungus',
                             style: GoogleFonts.poppins(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
@@ -474,7 +474,31 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       future: future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
-          return CameraPreview(controller);
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final size = math.min(
+                constraints.maxWidth,
+                constraints.maxHeight,
+              );
+              return Center(
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: controller.value.previewSize?.height ?? size,
+                        height: controller.value.previewSize?.width ?? size,
+                        child: CameraPreview(controller),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
         }
         if (snapshot.hasError) {
           return const Center(
@@ -496,7 +520,29 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Positioned.fill(child: _buildCameraPreview()),
+          Positioned.fill(
+            child: Stack(
+              children: [
+                Positioned.fill(child: _buildCameraPreview()),
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: Container(
+                      margin: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.85),
+                          width: 4,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -512,13 +558,13 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           Align(
             alignment: Alignment.bottomCenter,
             child: SafeArea(
-              minimum: const EdgeInsets.only(bottom: 24),
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 4),
+              minimum: const EdgeInsets.only(bottom: 32),
+              child: Text(
+                'Hold the camera for 10 seconds',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
