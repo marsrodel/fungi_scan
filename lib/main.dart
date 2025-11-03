@@ -4,6 +4,10 @@ import 'package:camera/camera.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
+import 'package:image/image.dart' as img;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -101,6 +105,107 @@ class PolkaDotPainter extends CustomPainter {
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
 
+class Classifier {
+  tfl.Interpreter? _interpreter;
+  List<String> _labels = [];
+  int _inputSize = 224;
+  bool _isFloat = true;
+
+  Future<void> load() async {
+    if (_interpreter != null) return;
+    final interpreter = await tfl.Interpreter.fromAsset('assets/model_unquant.tflite');
+    _interpreter = interpreter;
+    final inputShape = interpreter.getInputTensor(0).shape;
+    _inputSize = inputShape.length >= 3 ? inputShape[1] : 224;
+    _isFloat = true;
+    final labelsStr = await rootBundle.loadString('assets/labels.txt');
+    _labels = labelsStr
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .map((e) => e.replaceFirst(RegExp(r'^\s*\d+\s*'), '').trim())
+        .toList();
+  }
+
+  void dispose() {
+    _interpreter?.close();
+    _interpreter = null;
+  }
+
+  Future<List<double>> classifyProbs(File file) async {
+    final interpreter = _interpreter;
+    if (interpreter == null) {
+      throw StateError('Interpreter not loaded');
+    }
+    final bytes = await file.readAsBytes();
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) throw StateError('Failed to decode image');
+    // Center-crop to square to avoid distortion, then resize to model input
+    final shortest = decoded.width < decoded.height ? decoded.width : decoded.height;
+    final cropX = ((decoded.width - shortest) / 2).floor();
+    final cropY = ((decoded.height - shortest) / 2).floor();
+    final square = img.copyCrop(decoded, x: cropX, y: cropY, width: shortest, height: shortest);
+    final resized = img.copyResize(square, width: _inputSize, height: _inputSize);
+    if (_isFloat) {
+      final input = List.generate(1, (_) => List.generate(_inputSize, (_) => List.generate(_inputSize, (_) => List.filled(3, 0.0))));
+      final rgba = resized.getBytes(order: img.ChannelOrder.rgba);
+      for (int y = 0; y < _inputSize; y++) {
+        for (int x = 0; x < _inputSize; x++) {
+          final base = (y * _inputSize + x) * 4;
+          // Normalize to [0, 1]
+          final r = rgba[base] / 255.0;
+          final g = rgba[base + 1] / 255.0;
+          final b = rgba[base + 2] / 255.0;
+          input[0][y][x][0] = r;
+          input[0][y][x][1] = g;
+          input[0][y][x][2] = b;
+        }
+      }
+      final outputTensor = interpreter.getOutputTensor(0);
+      final numClasses = outputTensor.shape.last;
+      final output = [List.filled(numClasses, 0.0)];
+      interpreter.run(input, output);
+      final probs = (output[0] as List).cast<double>();
+      return probs;
+    } else {
+      final input = List.generate(1, (_) => List.generate(_inputSize, (_) => List.generate(_inputSize, (_) => List.filled(3, 0))));
+      final rgba = resized.getBytes(order: img.ChannelOrder.rgba);
+      for (int y = 0; y < _inputSize; y++) {
+        for (int x = 0; x < _inputSize; x++) {
+          final base = (y * _inputSize + x) * 4;
+          input[0][y][x][0] = rgba[base];
+          input[0][y][x][1] = rgba[base + 1];
+          input[0][y][x][2] = rgba[base + 2];
+        }
+      }
+      final outputTensor = interpreter.getOutputTensor(0);
+      final numClasses = outputTensor.shape.last;
+      final output = [List.filled(numClasses, 0)];
+      interpreter.run(input, output);
+      final probs = (output[0] as List).map((e) => (e as int).toDouble()).toList();
+      return probs;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> classify(File file, {int topK = 3}) async {
+    final probs = await classifyProbs(file);
+    final results = <Map<String, dynamic>>[];
+    for (int i = 0; i < probs.length; i++) {
+      final label = i < _labels.length ? _labels[i] : 'Class $i';
+      results.add({'label': label, 'index': i, 'confidence': probs[i]});
+    }
+    results.sort((a, b) => (b['confidence'] as double).compareTo(a['confidence'] as double));
+    return results.take(topK).toList();
+  }
+
+  String formatTopResult(List<Map<String, dynamic>> results) {
+    if (results.isEmpty) return 'No result';
+    final best = results.first;
+    final conf = (best['confidence'] as double);
+    return '${best['label']} • ${(conf * 100).toStringAsFixed(1)}%';
+  }
+}
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -111,6 +216,68 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ImagePicker _picker = ImagePicker();
   bool _picking = false;
+  final Classifier _classifier = Classifier();
+
+  Future<void> _runClassificationAndShow(File file) async {
+    await _classifier.load();
+    final start = DateTime.now();
+    List<double>? sum;
+    int count = 0;
+    while (DateTime.now().difference(start).inSeconds < 10) {
+      final probs = await _classifier.classifyProbs(file);
+      sum ??= List.filled(probs.length, 0.0);
+      for (int i = 0; i < probs.length; i++) {
+        sum[i] += probs[i];
+      }
+      count++;
+      await Future.delayed(const Duration(milliseconds: 600));
+    }
+    final avg = sum!.map((v) => v / count).toList();
+    final results = <Map<String, dynamic>>[];
+    for (int i = 0; i < avg.length; i++) {
+      results.add({'label': i < _classifier._labels.length ? _classifier._labels[i] : 'Class $i', 'index': i, 'confidence': avg[i]});
+    }
+    results.sort((a, b) => (b['confidence'] as double).compareTo(a['confidence'] as double));
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_classifier.formatTopResult(results)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Averaged over $count runs',
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            ...results.take(3).map((r) => Text(
+                  '${r['label']} - ${((r['confidence'] as double) * 100).toStringAsFixed(1)}%',
+                  style: GoogleFonts.poppins(),
+                )),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          )
+        ],
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _classifier.load();
+  }
+
+  @override
+  void dispose() {
+    _classifier.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickImage() async {
     if (_picking) {
@@ -125,12 +292,7 @@ class _HomePageState extends State<HomePage> {
         return;
       }
       if (picked != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Selected image: ${picked.name}'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        await _runClassificationAndShow(File(picked.path));
       }
     } catch (e) {
       if (!mounted) {
@@ -421,12 +583,16 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   bool _permissionDenied = false;
   bool _initializing = false;
   bool _noAvailableCamera = false;
+  final Classifier _classifier = Classifier();
+  bool _processing = false;
+  int _countdown = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeCamera();
+    _classifier.load();
   }
 
   Future<void> _initializeCamera() async {
@@ -505,6 +671,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controller?.dispose();
+    _classifier.dispose();
     super.dispose();
   }
 
@@ -619,18 +786,114 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
             alignment: Alignment.bottomCenter,
             child: SafeArea(
               minimum: const EdgeInsets.only(bottom: 32),
-              child: Text(
-                'Hold the camera for 10 seconds',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _processing ? null : _scanAndClassifyFor10s,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                    icon: _processing
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.camera),
+                    label: Text(
+                      _processing ? 'Scanning ${_countdown}s...' : 'Scan 10s & Identify',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+// removed custom reshape extension; we build 2D lists directly for outputs
+
+extension _CameraScanActions on _CameraPageState {
+  Future<void> _scanAndClassifyFor10s() async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    setState(() {
+      _processing = true;
+      _countdown = 10;
+    });
+    try {
+      await _classifier.load();
+      final end = DateTime.now().add(const Duration(seconds: 10));
+      List<double>? sum;
+      int count = 0;
+      int lastSecond = 10;
+      while (DateTime.now().isBefore(end)) {
+        // Update countdown once per second
+        final rem = end.difference(DateTime.now()).inSeconds + 1;
+        if (rem != lastSecond && mounted) {
+          setState(() => _countdown = rem.clamp(0, 10));
+          lastSecond = rem;
+        }
+
+        // Capture a frame and classify
+        final xfile = await controller.takePicture();
+        final probs = await _classifier.classifyProbs(File(xfile.path));
+        sum ??= List.filled(probs.length, 0.0);
+        for (int i = 0; i < probs.length; i++) {
+          sum[i] += probs[i];
+        }
+        count++;
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
+      final avg = sum?.map((v) => v / (count == 0 ? 1 : count)).toList() ?? [];
+      final results = <Map<String, dynamic>>[];
+      for (int i = 0; i < avg.length; i++) {
+        results.add({'label': i < _classifier._labels.length ? _classifier._labels[i] : 'Class $i', 'index': i, 'confidence': avg[i]});
+      }
+      results.sort((a, b) => (b['confidence'] as double).compareTo(a['confidence'] as double));
+      if (!mounted) return;
+      final best = results.isNotEmpty ? results.first : null;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Prediction', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (best != null)
+                Text('${best['label']}', style: GoogleFonts.titanOne(fontSize: 24, color: Theme.of(context).primaryColor)),
+              const SizedBox(height: 8),
+              Text('Averaged over $count frames', style: GoogleFonts.poppins()),
+              const SizedBox(height: 8),
+              ...results.take(3).map((r) => Text(
+                    '${r['label']} - ${((r['confidence'] as num) * 100).toStringAsFixed(1)}%',
+                    style: GoogleFonts.poppins(),
+                  )),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to scan: $e')));
+    } finally {
+      if (mounted) setState(() {
+        _processing = false;
+        _countdown = 0;
+      });
+    }
   }
 }
