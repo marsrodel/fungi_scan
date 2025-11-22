@@ -28,6 +28,7 @@ flutter:
     - assets/background.jpeg
     - assets/labels.txt
     - assets/model_unquant.tflite
+    - assets/photos/
 
 flutter_launcher_icons:
   android: true

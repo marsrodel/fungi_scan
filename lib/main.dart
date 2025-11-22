@@ -209,8 +209,13 @@ class Classifier {
 class FungiInfo {
   final String name;
   final String description;
+  final String imagePath;
 
-  const FungiInfo({required this.name, required this.description});
+  const FungiInfo({
+    required this.name,
+    required this.description,
+    required this.imagePath,
+  });
 }
 
 const List<FungiInfo> kFungiDictionary = [
@@ -218,51 +223,61 @@ const List<FungiInfo> kFungiDictionary = [
     name: 'Button Mushroom',
     description:
         'A small, white mushroom that is commonly used in cooking. It has a mild flavor and soft texture. This is the type you often see in grocery stores.',
+    imagePath: 'assets/photos/button.jpg',
   ),
   FungiInfo(
     name: 'Oyster Mushroom',
     description:
         'A mushroom with wide, fan-shaped caps that look like oysters. It has a soft, delicate texture and a slightly sweet, mild taste. Often used in stir-fries and soups.',
+    imagePath: 'assets/photos/oyster.jpg',
   ),
   FungiInfo(
     name: 'Enoki Mushroom',
     description:
         'A mushroom with long, thin stems and tiny white caps. It grows in tight bunches and has a crunchy texture. Common in ramen, hotpot, and salads.',
+    imagePath: 'assets/photos/enoki.jpg',
   ),
   FungiInfo(
     name: 'Morel Mushroom',
     description:
         'A rare mushroom with a honeycomb-like cap full of holes. It has a rich, earthy flavor and is considered a gourmet ingredient.',
+    imagePath: 'assets/photos/morel.jpg',
   ),
   FungiInfo(
     name: 'Chanterelle Mushroom',
     description:
         'A bright yellow or orange mushroom shaped like a small trumpet. It has a fruity smell and a slightly peppery taste. Popular in fine dining dishes.',
+    imagePath: 'assets/photos/chanterelles.jpg',
   ),
   FungiInfo(
     name: 'Black Trumpet Mushroom',
     description:
         'A dark, funnel-shaped mushroom that almost looks like a hollow trumpet. It has a smoky, deep flavor and is often used in sauces.',
+    imagePath: 'assets/photos/black_trumpet.jpg',
   ),
   FungiInfo(
     name: 'Fly Agaric Mushroom',
     description:
         'A bright red mushroom with white spots. It is famous in fairy tales and video games. Not safe to eat, as it can be poisonous.',
+    imagePath: 'assets/photos/fly_agaric.jpg',
   ),
   FungiInfo(
     name: 'Reishi Mushroom',
     description:
         'A tough, woody mushroom often used in traditional medicine. It has a shiny, reddish surface and is usually made into teas or supplements, not eaten as food.',
+    imagePath: 'assets/photos/reishi.jpg',
   ),
   FungiInfo(
     name: 'Coral Fungus',
     description:
         'A fungus that looks like underwater coral, with many branching arms. It comes in different colors and grows on the forest floor.',
+    imagePath: 'assets/photos/coral.jpg',
   ),
   FungiInfo(
     name: 'Bleeding Tooth Fungus',
     description:
         'A white fungus that “bleeds” bright red liquid droplets. It looks unusual and is not edible. The red appearance comes from natural pigments.',
+    imagePath: 'assets/photos/bleeding_tooth.jpeg',
   ),
 ];
 
@@ -710,20 +725,13 @@ class _HomePageState extends State<HomePage> {
                                             mainAxisSize: MainAxisSize.min,
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Container(
-                                                height: 140,
-                                                width: double.infinity,
-                                                decoration: BoxDecoration(
-                                                  color: Theme.of(context)
-                                                      .primaryColor
-                                                      .withOpacity(0.08),
-                                                  borderRadius: BorderRadius.circular(16),
-                                                ),
-                                                child: const Center(
-                                                  child: Icon(
-                                                    Icons.image_outlined,
-                                                    size: 48,
-                                                    color: Colors.black54,
+                                              ClipRRect(
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: AspectRatio(
+                                                  aspectRatio: 1,
+                                                  child: Image.asset(
+                                                    fungus.imagePath,
+                                                    fit: BoxFit.cover,
                                                   ),
                                                 ),
                                               ),
@@ -738,12 +746,6 @@ class _HomePageState extends State<HomePage> {
                                               ),
                                             ],
                                           ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.of(context).pop(),
-                                              child: const Text('Close'),
-                                            ),
-                                          ],
                                         );
                                       },
                                     );
@@ -751,18 +753,13 @@ class _HomePageState extends State<HomePage> {
                                   child: Row(
                                     crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
-                                      Container(
-                                        height: 48,
-                                        width: 48,
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context)
-                                              .primaryColor
-                                              .withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(16),
-                                        ),
-                                        child: const Icon(
-                                          Icons.image_outlined,
-                                          color: Colors.black54,
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Image.asset(
+                                          fungus.imagePath,
+                                          height: 48,
+                                          width: 48,
+                                          fit: BoxFit.cover,
                                         ),
                                       ),
                                       const SizedBox(width: 12),
