@@ -475,318 +475,328 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 40, left: 24, right: 24),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
               child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    FractionallySizedBox(
-                      widthFactor: 1,
-                      child: Container(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FractionallySizedBox(
+                        widthFactor: 1,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.85),
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 32,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 72,
+                                height: 72,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .primaryColor
+                                      .withOpacity(0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '🍄',
+                                    style: TextStyle(
+                                      fontSize: 40,
+                                      color: Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Fungi Scan',
+                                style: GoogleFonts.titanOne(
+                                  fontSize: 32,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Scan or upload photos to see which fungi species you have found.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                  height: 1.4,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        Theme.of(context).primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 18,
+                                      horizontal: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      PageRouteBuilder(
+                                        transitionDuration:
+                                            const Duration(milliseconds: 400),
+                                        pageBuilder: (context, animation,
+                                                secondaryAnimation) =>
+                                            const CameraPage(),
+                                        transitionsBuilder: (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                          child,
+                                        ) {
+                                          final tween = Tween(
+                                            begin: const Offset(0, 1),
+                                            end: Offset.zero,
+                                          ).chain(
+                                            CurveTween(curve: Curves.easeInOut),
+                                          );
+                                          return SlideTransition(
+                                            position: animation.drive(tween),
+                                            child: child,
+                                          );
+                                        },
+                                      ),
+                                    );
+                                  },
+                                  icon:
+                                      const Icon(Icons.camera_alt_outlined),
+                                  label: Text(
+                                    'Scan Fungus',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor:
+                                        Theme.of(context).primaryColor,
+                                    side: BorderSide(
+                                      color: Theme.of(context).primaryColor,
+                                      width: 2,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 18,
+                                      horizontal: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
+                                  onPressed: _picking ? null : _pickImage,
+                                  icon: const Icon(Icons.upload_file_outlined),
+                                  label: _picking
+                                      ? SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation(
+                                              Theme.of(context).primaryColor,
+                                            ),
+                                          ),
+                                        )
+                                      : Text(
+                                          'Upload Photo',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.85),
-                          borderRadius: BorderRadius.circular(28),
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
                             ),
                           ],
                         ),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 32,
+                          horizontal: 20,
+                          vertical: 24,
                         ),
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 72,
-                              height: 72,
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).primaryColor.withOpacity(0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '🍄',
-                                  style: TextStyle(
-                                    fontSize: 40,
-                                    color: Theme.of(context).primaryColor,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Fungi Scan',
-                              style: GoogleFonts.titanOne(
-                                fontSize: 32,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Scan or upload photos to see which fungi species you have found.',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.black87,
-                                height: 1.4,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).primaryColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 18,
-                                    horizontal: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    PageRouteBuilder(
-                                      transitionDuration: const Duration(
-                                        milliseconds: 400,
-                                      ),
-                                      pageBuilder:
-                                          (context, animation, secondaryAnimation) =>
-                                              const CameraPage(),
-                                      transitionsBuilder:
-                                          (
-                                            context,
-                                            animation,
-                                            secondaryAnimation,
-                                            child,
-                                          ) {
-                                            final tween =
-                                                Tween(
-                                                  begin: const Offset(0, 1),
-                                                  end: Offset.zero,
-                                                ).chain(
-                                                  CurveTween(curve: Curves.easeInOut),
-                                                );
-                                            return SlideTransition(
-                                              position: animation.drive(tween),
-                                              child: child,
-                                            );
-                                          },
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.camera_alt_outlined),
-                                label: Text(
-                                  'Scan Fungus',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Theme.of(context).primaryColor,
-                                  side: BorderSide(
-                                    color: Theme.of(context).primaryColor,
-                                    width: 2,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 18,
-                                    horizontal: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                ),
-                                onPressed: _picking ? null : _pickImage,
-                                icon: const Icon(Icons.upload_file_outlined),
-                                label: _picking
-                                    ? SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation(
-                                            Theme.of(context).primaryColor,
+                            InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                setState(() {
+                                  _showDictionary = !_showDictionary;
+                                });
+                              },
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Fungi Dictionary',
+                                          style: GoogleFonts.titanOne(
+                                            fontSize: 24,
+                                            color:
+                                                Theme.of(context).primaryColor,
                                           ),
                                         ),
-                                      )
-                                    : Text(
-                                        'Upload Photo',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Tap to ${_showDictionary ? 'hide' : 'view'} the list of fungi classes.',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 14,
+                                            color: Colors.black87,
+                                          ),
                                         ),
-                                      ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    _showDictionary
+                                        ? Icons.keyboard_arrow_up
+                                        : Icons.keyboard_arrow_down,
+                                    color: Colors.black54,
+                                  ),
+                                ],
                               ),
                             ),
+                            if (_showDictionary) ...[
+                              const SizedBox(height: 16),
+                              ...kFungiDictionary.map(
+                                (fungus) => Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 4),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(16),
+                                    onTap: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) {
+                                          return AlertDialog(
+                                            title: Text(
+                                              fungus.name,
+                                              style: GoogleFonts.titanOne(
+                                                fontSize: 22,
+                                                color: Theme.of(context)
+                                                    .primaryColor,
+                                              ),
+                                            ),
+                                            content: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  child: AspectRatio(
+                                                    aspectRatio: 1,
+                                                    child: Image.asset(
+                                                      fungus.imagePath,
+                                                      fit: BoxFit.cover,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Text(
+                                                  fungus.description,
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 14,
+                                                    color: Colors.black87,
+                                                    height: 1.4,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          child: Image.asset(
+                                            fungus.imagePath,
+                                            height: 48,
+                                            width: 48,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            fungus.name,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          color: Colors.black45,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 24,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              setState(() {
-                                _showDictionary = !_showDictionary;
-                              });
-                            },
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Fungi Dictionary',
-                                        style: GoogleFonts.titanOne(
-                                          fontSize: 24,
-                                          color: Theme.of(context).primaryColor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Tap to ${_showDictionary ? 'hide' : 'view'} the list of fungi classes.',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  _showDictionary
-                                      ? Icons.keyboard_arrow_up
-                                      : Icons.keyboard_arrow_down,
-                                  color: Colors.black54,
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (_showDictionary) ...[
-                            const SizedBox(height: 16),
-                            ...kFungiDictionary.map(
-                              (fungus) => Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) {
-                                        return AlertDialog(
-                                          title: Text(
-                                            fungus.name,
-                                            style: GoogleFonts.titanOne(
-                                              fontSize: 22,
-                                              color: Theme.of(context).primaryColor,
-                                            ),
-                                          ),
-                                          content: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              ClipRRect(
-                                                borderRadius: BorderRadius.circular(16),
-                                                child: AspectRatio(
-                                                  aspectRatio: 1,
-                                                  child: Image.asset(
-                                                    fungus.imagePath,
-                                                    fit: BoxFit.cover,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 12),
-                                              Text(
-                                                fungus.description,
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 14,
-                                                  color: Colors.black87,
-                                                  height: 1.4,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  },
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(16),
-                                        child: Image.asset(
-                                          fungus.imagePath,
-                                          height: 48,
-                                          width: 48,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          fungus.name,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                      const Icon(
-                                        Icons.chevron_right,
-                                        color: Colors.black45,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                  ],
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
             ),
