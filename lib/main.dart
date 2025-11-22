@@ -293,20 +293,38 @@ class _HomePageState extends State<HomePage> {
   bool _picking = false;
   final Classifier _classifier = Classifier();
   bool _showDictionary = false;
+  int _uploadCountdown = 0;
 
   Future<void> _runClassificationAndShow(File file) async {
     await _classifier.load();
     final start = DateTime.now();
     List<double>? sum;
     int count = 0;
-    while (DateTime.now().difference(start).inSeconds < 10) {
+    if (mounted) {
+      setState(() {
+        _uploadCountdown = 5;
+      });
+    }
+    while (DateTime.now().difference(start).inSeconds < 5) {
       final probs = await _classifier.classifyProbs(file);
       sum ??= List.filled(probs.length, 0.0);
       for (int i = 0; i < probs.length; i++) {
         sum[i] += probs[i];
       }
       count++;
+      final elapsed = DateTime.now().difference(start).inSeconds;
+      final remaining = (5 - elapsed).clamp(0, 5);
+      if (mounted) {
+        setState(() {
+          _uploadCountdown = remaining;
+        });
+      }
       await Future.delayed(const Duration(milliseconds: 600));
+    }
+    if (mounted) {
+      setState(() {
+        _uploadCountdown = 0;
+      });
     }
     final avg = sum!.map((v) => v / count).toList();
     final results = <Map<String, dynamic>>[];
@@ -323,7 +341,7 @@ class _HomePageState extends State<HomePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Averaged over $count runs',
+              'Averaged over $count runs (5s scan)',
               style: GoogleFonts.poppins(fontSize: 16),
             ),
             const SizedBox(height: 8),
@@ -384,6 +402,7 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         setState(() {
           _picking = false;
+          _uploadCountdown = 0;
         });
       }
     }
@@ -623,11 +642,25 @@ class _HomePageState extends State<HomePage> {
                                       ? SizedBox(
                                           height: 20,
                                           width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation(
-                                              Theme.of(context).primaryColor,
-                                            ),
+                                          child: Stack(
+                                            alignment: Alignment.center,
+                                            children: [
+                                              CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation(
+                                                  Theme.of(context).primaryColor,
+                                                ),
+                                              ),
+                                              if (_uploadCountdown > 0)
+                                                Text(
+                                                  '$_uploadCountdown',
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Theme.of(context).primaryColor,
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                         )
                                       : Text(
@@ -1026,26 +1059,52 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: _processing ? null : _scanAndClassifyFor10s,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  if (_processing)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 32),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(40),
+                      ),
+                      child: Center(
+                        child: SizedBox(
+                          height: 56,
+                          width: 56,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                strokeWidth: 4,
+                                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                              Text(
+                                '$_countdown',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ElevatedButton.icon(
+                      onPressed: _scanAndClassifyFor10s,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      icon: const Icon(Icons.camera),
+                      label: Text(
+                        'Scan 5s & Identify',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    icon: _processing
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.camera),
-                    label: Text(
-                      _processing ? 'Scanning ${_countdown}s...' : 'Scan 10s & Identify',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1064,19 +1123,19 @@ extension _CameraScanActions on _CameraPageState {
     if (controller == null || !controller.value.isInitialized) return;
     setState(() {
       _processing = true;
-      _countdown = 10;
+      _countdown = 5;
     });
     try {
       await _classifier.load();
-      final end = DateTime.now().add(const Duration(seconds: 10));
+      final end = DateTime.now().add(const Duration(seconds: 5));
       List<double>? sum;
       int count = 0;
-      int lastSecond = 10;
+      int lastSecond = 5;
       while (DateTime.now().isBefore(end)) {
         // Update countdown once per second
         final rem = end.difference(DateTime.now()).inSeconds + 1;
         if (rem != lastSecond && mounted) {
-          setState(() => _countdown = rem.clamp(0, 10));
+          setState(() => _countdown = rem.clamp(0, 5));
           lastSecond = rem;
         }
 
