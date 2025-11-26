@@ -14,6 +14,17 @@ Future<void> main() async {
   runApp(const MainApp());
 }
 
+List<double> softmax(List<double> x) {
+  if (x.isEmpty) return x;
+  final maxVal = x.reduce((a, b) => a > b ? a : b);
+  final exps = x.map((v) => math.exp(v - maxVal)).toList();
+  final sum = exps.fold<double>(0, (s, v) => s + v);
+  if (sum == 0) {
+    return List<double>.filled(x.length, 1.0 / x.length);
+  }
+  return exps.map((v) => v / sum).toList();
+}
+
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
@@ -189,10 +200,12 @@ class Classifier {
 
   Future<List<Map<String, dynamic>>> classify(File file, {int topK = 3}) async {
     final probs = await classifyProbs(file);
+    final total = probs.fold<double>(0, (s, v) => s + v);
+    final norm = total == 0 ? probs : probs.map((v) => v / total).toList();
     final results = <Map<String, dynamic>>[];
-    for (int i = 0; i < probs.length; i++) {
+    for (int i = 0; i < norm.length; i++) {
       final label = i < _labels.length ? _labels[i] : 'Class $i';
-      results.add({'label': label, 'index': i, 'confidence': probs[i]});
+      results.add({'label': label, 'index': i, 'confidence': norm[i]});
     }
     results.sort((a, b) => (b['confidence'] as double).compareTo(a['confidence'] as double));
     return results.take(topK).toList();
@@ -327,9 +340,11 @@ class _HomePageState extends State<HomePage> {
       });
     }
     final avg = sum!.map((v) => v / count).toList();
+    final total = avg.fold<double>(0, (s, v) => s + v);
+    final probs = total == 0 ? avg : avg.map((v) => v / total).toList();
     final results = <Map<String, dynamic>>[];
-    for (int i = 0; i < avg.length; i++) {
-      results.add({'label': i < _classifier._labels.length ? _classifier._labels[i] : 'Class $i', 'index': i, 'confidence': avg[i]});
+    for (int i = 0; i < probs.length; i++) {
+      results.add({'label': i < _classifier._labels.length ? _classifier._labels[i] : 'Class $i', 'index': i, 'confidence': probs[i]});
     }
     results.sort((a, b) => (b['confidence'] as double).compareTo(a['confidence'] as double));
     if (!mounted) return;
@@ -676,7 +691,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.9),
@@ -827,6 +842,39 @@ class _HomePageState extends State<HomePage> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 18,
+                              horizontal: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const AnalyticsPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.bar_chart_rounded, color: Colors.white),
+                          label: Text(
+                            'Analytics',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -891,7 +939,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       );
       final controller = CameraController(
         selectedCamera,
-        ResolutionPreset.medium,
+        ResolutionPreset.max,
         enableAudio: false,
       );
       await _controller?.dispose();
@@ -1101,7 +1149,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                       ),
                       icon: const Icon(Icons.camera),
                       label: Text(
-                        'Scan 5s & Identify',
+                        'Scan & Identify',
                         style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -1151,9 +1199,10 @@ extension _CameraScanActions on _CameraPageState {
       }
 
       final avg = sum?.map((v) => v / (count == 0 ? 1 : count)).toList() ?? [];
+      final probs = softmax(avg);
       final results = <Map<String, dynamic>>[];
-      for (int i = 0; i < avg.length; i++) {
-        results.add({'label': i < _classifier._labels.length ? _classifier._labels[i] : 'Class $i', 'index': i, 'confidence': avg[i]});
+      for (int i = 0; i < probs.length; i++) {
+        results.add({'label': i < _classifier._labels.length ? _classifier._labels[i] : 'Class $i', 'index': i, 'confidence': probs[i]});
       }
       results.sort((a, b) => (b['confidence'] as double).compareTo(a['confidence'] as double));
       if (!mounted) return;
@@ -1191,5 +1240,37 @@ extension _CameraScanActions on _CameraPageState {
         _countdown = 0;
       });
     }
+  }
+  
+}
+class AnalyticsPage extends StatelessWidget {
+  const AnalyticsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Analytics',
+          style: GoogleFonts.titanOne(
+            fontSize: 28,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: Text(
+          'Analytics placeholder\n(History of scans will appear here)',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            color: Colors.black87,
+          ),
+        ),
+      ),
+    );
   }
 }
