@@ -904,6 +904,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   final Classifier _classifier = Classifier();
   bool _processing = false;
   int _countdown = 0;
+  bool _flashOn = false;
 
   @override
   void initState() {
@@ -949,6 +950,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         _initializeControllerFuture = initializeFuture;
       });
       await initializeFuture;
+      // Default flash off so it doesn't fire unexpectedly
+      await controller.setFlashMode(FlashMode.off);
     } on CameraException catch (e) {
       if (!mounted) {
         return;
@@ -1089,13 +1092,36 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    IconButton(
+                      iconSize: 26,
+                      color: Colors.white,
+                      onPressed: () async {
+                        final controller = _controller;
+                        if (controller == null || !controller.value.isInitialized) return;
+                        final newOn = !_flashOn;
+                        try {
+                          await controller.setFlashMode(newOn ? FlashMode.torch : FlashMode.off);
+                          if (mounted) {
+                            setState(() {
+                              _flashOn = newOn;
+                            });
+                          }
+                        } catch (_) {}
+                      },
+                      icon: Icon(_flashOn ? Icons.flash_on : Icons.flash_off),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1139,18 +1165,24 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                       ),
                     )
                   else
-                    ElevatedButton.icon(
-                      onPressed: _scanAndClassifyFor10s,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                      icon: const Icon(Icons.camera),
-                      label: Text(
-                        'Scan & Identify',
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: ElevatedButton.icon(
+                          onPressed: _scanAndClassifyFor10s,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          ),
+                          icon: const Icon(Icons.camera),
+                          label: Text(
+                            'Scan & Identify',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                          ),
+                        ),
                       ),
                     ),
                 ],
