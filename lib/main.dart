@@ -1328,8 +1328,48 @@ extension _CameraScanActions on _CameraPageState {
   }
   
 }
-class AnalyticsPage extends StatelessWidget {
+class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key});
+
+  @override
+  State<AnalyticsPage> createState() => _AnalyticsPageState();
+}
+
+class _AnalyticsPageState extends State<AnalyticsPage> {
+  // Fetch logs from Firestore
+  // Firestore structure from your screenshot:
+  // Collection: Maraon-FungiVariety
+  //   Document: Maraon_FungiVariety_Logs
+  Stream<List<Map<String, dynamic>>> _getLogsStream() {
+    return FirebaseFirestore.instance
+        .collection('Maraon-FungiVariety')
+        .doc('Maraon_FungiVariety_Logs')
+        .snapshots()
+        .map((snapshot) {
+      final data = snapshot.data();
+      if (data == null) return <Map<String, dynamic>>[];
+
+      // If you later store multiple logs in an array, handle that here.
+      // For now, treat this document as a single log entry.
+
+      String timeString = '';
+      if (data['Time'] is Timestamp) {
+        final timestamp = data['Time'] as Timestamp;
+        final dateTime = timestamp.toDate();
+        timeString = '${dateTime.month}/${dateTime.day}/${dateTime.year} at ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      } else if (data['Time'] is String) {
+        timeString = data['Time'];
+      }
+
+      return [
+        {
+          'classType': data['ClassType'] ?? '',
+          'accuracyRate': (data['Accuracy_Rate'] ?? 0).toDouble(),
+          'time': timeString,
+        },
+      ];
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1346,13 +1386,414 @@ class AnalyticsPage extends StatelessWidget {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
       ),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _getLogsStream(),
+        builder: (context, snapshot) {
+          // Show loading state
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          // Show error state
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Error loading logs:\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(color: Colors.red),
+                ),
+              ),
+            );
+          }
+
+          final logs = snapshot.data ?? [];
+
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    'Logs fetched: ${logs.length}',
+                    style: GoogleFonts.poppins(fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Graph Section
+                  GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GraphDetailPage()),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.black, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(2, 2),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Graph',
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 24,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          height: 150,
+                          child: Center(
+                            child: Text(
+                              'Analytics placeholder\n(Graph will appear here)',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // History Section
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => HistoryLogsPage(logs: logs)),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.black, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(2, 2),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'History',
+                              style: GoogleFonts.poppins(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 24,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // Preview of first 3 logs
+                        Column(
+                          children: [
+                            // Table Header
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(8),
+                                  topRight: Radius.circular(8),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      'Class Type',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'Accuracy',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      'Time',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Show first 3 logs as preview
+                            ...logs.take(3).toList().asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final log = entry.value;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: index % 2 == 0 ? Colors.grey[100] : Colors.white,
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.grey[300]!, width: 1),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        log['classType'],
+                                        style: GoogleFonts.poppins(fontSize: 12),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        '${log['accuracyRate'].toStringAsFixed(1)}%',
+                                        style: GoogleFonts.poppins(fontSize: 12),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        log['time'],
+                                        style: GoogleFonts.poppins(fontSize: 10),
+                                        textAlign: TextAlign.right,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// Graph Detail Page
+class GraphDetailPage extends StatelessWidget {
+  const GraphDetailPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Graph',
+          style: GoogleFonts.titanOne(
+            fontSize: 28,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+      ),
       body: Center(
-        child: Text(
-          'Analytics placeholder\n(History of scans will appear here)',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            color: Colors.black87,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Analytics placeholder\n(Detailed graph will appear here)',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// History Logs Detail Page
+class HistoryLogsPage extends StatelessWidget {
+  final List<Map<String, dynamic>> logs;
+  
+  const HistoryLogsPage({super.key, required this.logs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'History',
+          style: GoogleFonts.titanOne(
+            fontSize: 28,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Table Header
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    topRight: Radius.circular(8),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        'Class Type',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Accuracy',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        'Time',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // All logs rows
+              ...logs.asMap().entries.map((entry) {
+                final index = entry.key;
+                final log = entry.value;
+                return Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: index % 2 == 0 ? Colors.grey[100] : Colors.white,
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey[300]!, width: 1),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          log['classType'],
+                          style: GoogleFonts.poppins(fontSize: 12),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          '${log['accuracyRate'].toStringAsFixed(1)}%',
+                          style: GoogleFonts.poppins(fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          log['time'],
+                          style: GoogleFonts.poppins(fontSize: 10),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
           ),
         ),
       ),
