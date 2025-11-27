@@ -310,6 +310,29 @@ class _HomePageState extends State<HomePage> {
   bool _showDictionary = false;
   int _uploadCountdown = 0;
 
+  Future<void> _storeLog(String className, double accuracyPercent) async {
+    try {
+      final docRef = FirebaseFirestore.instance
+          .collection('Maraon-FungiVariety')
+          .doc('Maraon_FungiVariety_Logs');
+
+      await docRef.set({
+        'logs': FieldValue.arrayUnion([
+          {
+            'ClassType': className,
+            'Accuracy_Rate': accuracyPercent,
+            'Time': Timestamp.now(),
+          },
+        ]),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to store log: $e')),
+      );
+    }
+  }
+
   Future<void> _runClassificationAndShow(File file) async {
     await _classifier.load();
     final start = DateTime.now();
@@ -380,9 +403,16 @@ class _HomePageState extends State<HomePage> {
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           ElevatedButton(
-            onPressed: () {
-              // TODO: Store to Firestore
-              Navigator.of(context).pop();
+            onPressed: () async {
+              final best = results.isNotEmpty ? results.first : null;
+              if (best != null) {
+                final label = best['label'] as String;
+                final confidence = (best['confidence'] as num).toDouble();
+                await _storeLog(label, confidence * 100);
+              }
+              if (mounted) {
+                Navigator.of(context).pop();
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).primaryColor,
@@ -1292,9 +1322,19 @@ extension _CameraScanActions on _CameraPageState {
           actionsAlignment: MainAxisAlignment.center,
           actions: [
             ElevatedButton(
-              onPressed: () {
-                // TODO: Store to Firestore
-                Navigator.of(context).pop();
+              onPressed: () async {
+                if (best != null) {
+                  final label = best['label'] as String;
+                  final confidence = (best['confidence'] as num).toDouble();
+                  // Use HomePage's helper via context
+                  final state = context.findAncestorStateOfType<_HomePageState>();
+                  if (state != null) {
+                    await state._storeLog(label, confidence * 100);
+                  }
+                }
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
@@ -1349,16 +1389,38 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       final data = snapshot.data();
       if (data == null) return <Map<String, dynamic>>[];
 
-      // If you later store multiple logs in an array, handle that here.
-      // For now, treat this document as a single log entry.
+      // Preferred structure: an array field 'logs', each item a map
+      final dynamic rawLogs = data['logs'];
+      if (rawLogs is List) {
+        return rawLogs.map<Map<String, dynamic>>((item) {
+          final Map<String, dynamic> log =
+              item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item as Map);
 
+          String timeString = '';
+          final dynamic rawTime = log['Time'];
+          if (rawTime is Timestamp) {
+            final dateTime = rawTime.toDate();
+            timeString = '${dateTime.month}/${dateTime.day}/${dateTime.year} at ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+          } else if (rawTime is String) {
+            timeString = rawTime;
+          }
+
+          return {
+            'classType': log['ClassType'] ?? '',
+            'accuracyRate': (log['Accuracy_Rate'] ?? 0).toDouble(),
+            'time': timeString,
+          };
+        }).toList();
+      }
+
+      // Backwards compatibility: single log stored directly on the document
       String timeString = '';
-      if (data['Time'] is Timestamp) {
-        final timestamp = data['Time'] as Timestamp;
-        final dateTime = timestamp.toDate();
+      final dynamic rawTime = data['Time'];
+      if (rawTime is Timestamp) {
+        final dateTime = rawTime.toDate();
         timeString = '${dateTime.month}/${dateTime.day}/${dateTime.year} at ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
-      } else if (data['Time'] is String) {
-        timeString = data['Time'];
+      } else if (rawTime is String) {
+        timeString = rawTime;
       }
 
       return [
@@ -1415,12 +1477,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  Text(
-                    'Logs fetched: ${logs.length}',
-                    style: GoogleFonts.poppins(fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-
                   // Graph Section
                   GestureDetector(
                 onTap: () {
@@ -1431,6 +1487,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 },
                 child: Container(
                   width: double.infinity,
+                  height: 330,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -1448,7 +1505,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     child: Column(
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               'Graph',
@@ -1457,6 +1513,18 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Tap here for more details',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
                             const Icon(
                               Icons.arrow_forward_ios,
                               size: 24,
@@ -1494,6 +1562,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 },
                 child: Container(
                   width: double.infinity,
+                  height: 330,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -1511,7 +1580,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     child: Column(
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               'History',
@@ -1520,6 +1588,18 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Tap here for more details',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
                             const Icon(
                               Icons.arrow_forward_ios,
                               size: 24,
@@ -1532,7 +1612,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                           children: [
                             // Table Header
                             Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).primaryColor,
                                 borderRadius: const BorderRadius.only(
@@ -1549,8 +1629,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                       style: GoogleFonts.poppins(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                        fontSize: 12,
                                       ),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ),
                                   Expanded(
@@ -1560,7 +1641,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                       style: GoogleFonts.poppins(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                        fontSize: 12,
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
@@ -1572,15 +1653,15 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                       style: GoogleFonts.poppins(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                        fontSize: 12,
                                       ),
-                                      textAlign: TextAlign.right,
+                                      textAlign: TextAlign.center,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            // Show first 3 logs as preview
+                            // Show at most first 2 logs as preview (full list is on detail page)
                             ...logs.take(3).toList().asMap().entries.map((entry) {
                               final index = entry.key;
                               final log = entry.value;
@@ -1704,7 +1785,7 @@ class HistoryLogsPage extends StatelessWidget {
             children: [
               // Table Header
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
                   borderRadius: const BorderRadius.only(
@@ -1721,8 +1802,9 @@ class HistoryLogsPage extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 12,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     Expanded(
@@ -1732,7 +1814,7 @@ class HistoryLogsPage extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 12,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -1744,9 +1826,9 @@ class HistoryLogsPage extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 12,
                         ),
-                        textAlign: TextAlign.right,
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ],
