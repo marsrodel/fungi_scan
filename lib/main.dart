@@ -8,9 +8,12 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
 import 'package:image/image.dart' as img;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const MainApp());
 }
 
@@ -214,8 +217,7 @@ class Classifier {
   String formatTopResult(List<Map<String, dynamic>> results) {
     if (results.isEmpty) return 'No result';
     final best = results.first;
-    final conf = (best['confidence'] as double);
-    return '${best['label']} • ${(conf * 100).toStringAsFixed(1)}%';
+    return '${best['label']}';
   }
 }
 
@@ -351,26 +353,54 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(_classifier.formatTopResult(results)),
+        title: Text('Result:', style: GoogleFonts.poppins(fontWeight: FontWeight.w700), textAlign: TextAlign.center),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              'Averaged over $count runs (5s scan)',
+              _classifier.formatTopResult(results),
+              style: GoogleFonts.titanOne(fontSize: 24, color: Theme.of(context).primaryColor),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Top 3 prediction:',
               style: GoogleFonts.poppins(fontSize: 16),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             ...results.take(3).map((r) => Text(
                   '${r['label']} - ${((r['confidence'] as double) * 100).toStringAsFixed(1)}%',
                   style: GoogleFonts.poppins(),
+                  textAlign: TextAlign.center,
                 )),
           ],
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Store to Firestore
+              Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: Text('Store', style: GoogleFonts.poppins()),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          )
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.black,
+              side: const BorderSide(color: Colors.black),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: Text('Cancel', style: GoogleFonts.poppins()),
+          ),
         ],
       ),
     );
@@ -1242,24 +1272,47 @@ extension _CameraScanActions on _CameraPageState {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Prediction', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+          title: Text('Result:', style: GoogleFonts.poppins(fontWeight: FontWeight.w700), textAlign: TextAlign.center),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (best != null)
-                Text('${best['label']}', style: GoogleFonts.titanOne(fontSize: 24, color: Theme.of(context).primaryColor)),
+                Text('${best['label']}', style: GoogleFonts.titanOne(fontSize: 24, color: Theme.of(context).primaryColor), textAlign: TextAlign.center),
               const SizedBox(height: 8),
-              Text('Averaged over $count frames', style: GoogleFonts.poppins()),
+              Text('Top 3 prediction:', style: GoogleFonts.poppins(), textAlign: TextAlign.center),
               const SizedBox(height: 8),
               ...results.take(3).map((r) => Text(
                     '${r['label']} - ${((r['confidence'] as num) * 100).toStringAsFixed(1)}%',
                     style: GoogleFonts.poppins(),
+                    textAlign: TextAlign.center,
                   )),
             ],
           ),
+          actionsAlignment: MainAxisAlignment.center,
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+            ElevatedButton(
+              onPressed: () {
+                // TODO: Store to Firestore
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: Text('Store', style: GoogleFonts.poppins()),
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.black,
+                side: const BorderSide(color: Colors.black),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: Text('Cancel', style: GoogleFonts.poppins()),
+            ),
           ],
         ),
       );
