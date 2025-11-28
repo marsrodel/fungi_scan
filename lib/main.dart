@@ -10,6 +10,7 @@ import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
 import 'package:image/image.dart' as img;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1409,6 +1410,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             'classType': log['ClassType'] ?? '',
             'accuracyRate': (log['Accuracy_Rate'] ?? 0).toDouble(),
             'time': timeString,
+            // Keep original DateTime for graphing when available
+            'dateTime': rawTime is Timestamp ? rawTime.toDate() : null,
           };
         }).toList();
       }
@@ -1428,6 +1431,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           'classType': data['ClassType'] ?? '',
           'accuracyRate': (data['Accuracy_Rate'] ?? 0).toDouble(),
           'time': timeString,
+          'dateTime': rawTime is Timestamp ? rawTime.toDate() : null,
         },
       ];
     });
@@ -1482,7 +1486,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const GraphDetailPage()),
+                    MaterialPageRoute(
+                      builder: (_) => GraphDetailPage(logs: logs),
+                    ),
                   );
                 },
                 child: Container(
@@ -1723,10 +1729,39 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
 // Graph Detail Page
 class GraphDetailPage extends StatelessWidget {
-  const GraphDetailPage({super.key});
+  final List<Map<String, dynamic>> logs;
+
+  const GraphDetailPage({super.key, required this.logs});
 
   @override
   Widget build(BuildContext context) {
+    // Known classes (show all of them on the x-axis, even if count is 0)
+    const classNames = [
+      'Button Mushroom',
+      'Oyster Mushroom',
+      'Enoki Mushroom',
+      'Morel Mushroom',
+      'Chanterelle Mushroom',
+      'Black Trumpet Mushroom',
+      'Fly Agaric Mushroom',
+      'Reishi Mushroom',
+      'Coral Fungus',
+      'Bleeding Tooth Fungus',
+    ];
+
+    // Group logs by class type and count how many detections each class has
+    final Map<String, int> countsByClass = {};
+    for (final log in logs) {
+      final classType = (log['classType'] ?? '').toString();
+      if (classType.isEmpty) continue;
+      countsByClass[classType] = (countsByClass[classType] ?? 0) + 1;
+    }
+    final spots = <FlSpot>[];
+    for (int i = 0; i < classNames.length; i++) {
+      final count = countsByClass[classNames[i]] ?? 0;
+      spots.add(FlSpot(i.toDouble(), count.toDouble()));
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -1740,18 +1775,140 @@ class GraphDetailPage extends StatelessWidget {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Analytics placeholder\n(Detailed graph will appear here)',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              color: Colors.grey,
-            ),
-          ),
-        ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: classNames.isEmpty
+            ? Center(
+                child: Text(
+                  'No logs yet to display.',
+                  style: GoogleFonts.poppins(fontSize: 16),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Detections per class',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Shows how many times each class was detected',
+                    style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[700]),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: SizedBox(
+                      height: 260,
+                      child: LineChart(
+                        LineChartData(
+                          minX: 0,
+                          maxX: spots.isNotEmpty ? spots.last.x : 0,
+                          minY: 0,
+                          maxY: spots.isNotEmpty
+                              ? spots.map((s) => s.y).reduce((a, b) => a > b ? a : b) + 1
+                              : 1,
+                          gridData: FlGridData(show: true),
+                          borderData: FlBorderData(
+                            show: true,
+                            border: const Border(
+                              left: BorderSide(color: Colors.black54, width: 1),
+                              bottom: BorderSide(color: Colors.black54, width: 1),
+                              right: BorderSide(color: Colors.transparent),
+                              top: BorderSide(color: Colors.transparent),
+                            ),
+                          ),
+                          titlesData: FlTitlesData(
+                            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 32,
+                                getTitlesWidget: (value, meta) {
+                                  // Only show integer steps (0,1,2,...)
+                                  if (value % 1 != 0) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Text(
+                                    value.toInt().toString(),
+                                    style: GoogleFonts.poppins(fontSize: 10),
+                                  );
+                                },
+                              ),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 40,
+                                interval: 1,
+                                getTitlesWidget: (value, meta) {
+                                  final index = value.toInt();
+                                  if (index < 0 || index >= classNames.length) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  // Short display label: remove common suffixes like 'Mushroom' and 'Fungus'
+                                  final fullLabel = classNames[index];
+                                  var label = fullLabel
+                                      .replaceAll(' Mushroom', '')
+                                      .replaceAll(' Fungus', '');
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Transform.rotate(
+                                      angle: -math.pi / 4,
+                                      child: Text(
+                                        label,
+                                        style: GoogleFonts.poppins(fontSize: 9),
+                                        textAlign: TextAlign.center,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          lineTouchData: LineTouchData(
+                            touchTooltipData: LineTouchTooltipData(
+                              getTooltipItems: (touchedSpots) {
+                                return touchedSpots
+                                    .map((barSpot) => LineTooltipItem(
+                                          barSpot.y.toInt().toString(),
+                                          TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ))
+                                    .toList();
+                              },
+                            ),
+                          ),
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: spots,
+                              isCurved: true,
+                              color: Theme.of(context).primaryColor,
+                              barWidth: 3,
+                              dotData: FlDotData(show: true),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: Theme.of(context)
+                                    .primaryColor
+                                    .withOpacity(0.2),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
