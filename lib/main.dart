@@ -376,64 +376,185 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Result:', style: GoogleFonts.poppins(fontWeight: FontWeight.w700), textAlign: TextAlign.center),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              _classifier.formatTopResult(results),
-              style: GoogleFonts.titanOne(fontSize: 24, color: Theme.of(context).primaryColor),
-              textAlign: TextAlign.center,
+      builder: (context) {
+        // Known classes (show all of them, even if probability is 0)
+        const classNames = [
+          'Button Mushroom',
+          'Oyster Mushroom',
+          'Enoki Mushroom',
+          'Morel Mushroom',
+          'Chanterelle Mushroom',
+          'Black Trumpet Mushroom',
+          'Fly Agaric Mushroom',
+          'Reishi Mushroom',
+          'Coral Fungus',
+          'Bleeding Tooth Fungus',
+        ];
+
+        // Map from label to confidence
+        final Map<String, double> confidenceByLabel = {};
+        for (final r in results) {
+          final label = r['label'] as String;
+          final conf = (r['confidence'] as num).toDouble();
+          confidenceByLabel[label] = conf;
+        }
+
+        return AlertDialog(
+          title: Text(
+            'Result:',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+            textAlign: TextAlign.center,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                _classifier.formatTopResult(results),
+                style: GoogleFonts.titanOne(
+                  fontSize: 24,
+                  color: Theme.of(context).primaryColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Prediction distribution',
+                style: GoogleFonts.poppins(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 180,
+                width: double.infinity,
+                child: BarChart(
+                  BarChartData(
+                    minY: 0,
+                    maxY: 100,
+                    gridData: FlGridData(show: true),
+                    borderData: FlBorderData(show: false),
+                    barTouchData: BarTouchData(enabled: false),
+                    titlesData: FlTitlesData(
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 24,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index < 0 || index >= classNames.length) {
+                              return const SizedBox.shrink();
+                            }
+                            final fullLabel = classNames[index];
+                            final percent = (confidenceByLabel[fullLabel] ?? 0.0) * 100.0;
+                            final percentText = percent == 0
+                                ? '0'
+                                : percent.toStringAsFixed(2);
+                            return Text(
+                              percentText,
+                              style: GoogleFonts.poppins(fontSize: 9),
+                              textAlign: TextAlign.center,
+                            );
+                          },
+                        ),
+                      ),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 28,
+                          getTitlesWidget: (value, meta) {
+                            if (value % 25 != 0) return const SizedBox.shrink();
+                            return Text(
+                              value.toInt().toString(),
+                              style: GoogleFonts.poppins(fontSize: 10),
+                            );
+                          },
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          interval: 1,
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index < 0 || index >= classNames.length) {
+                              return const SizedBox.shrink();
+                            }
+                            final fullLabel = classNames[index];
+                            final shortLabel = fullLabel
+                                .replaceAll(' Mushroom', '')
+                                .replaceAll(' Fungus', '');
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Transform.rotate(
+                                angle: -math.pi / 4,
+                                child: Text(
+                                  shortLabel,
+                                  style: GoogleFonts.poppins(fontSize: 8),
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    barGroups: List.generate(classNames.length, (index) {
+                      final label = classNames[index];
+                      final percent = (confidenceByLabel[label] ?? 0.0) * 100.0;
+                      return BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          BarChartRodData(
+                            toY: percent,
+                            color: Theme.of(context).primaryColor,
+                            width: 6,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            ElevatedButton(
+              onPressed: () async {
+                final best = results.isNotEmpty ? results.first : null;
+                if (best != null) {
+                  final label = best['label'] as String;
+                  final confidence = (best['confidence'] as num).toDouble();
+                  await _storeLog(label, confidence * 100);
+                }
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: Text('Store', style: GoogleFonts.poppins()),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Top 3 prediction:',
-              style: GoogleFonts.poppins(fontSize: 16),
-              textAlign: TextAlign.center,
+            const SizedBox(width: 12),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.black,
+                side: const BorderSide(color: Colors.black),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: Text('Cancel', style: GoogleFonts.poppins()),
             ),
-            const SizedBox(height: 8),
-            ...results.take(3).map((r) => Text(
-                  '${r['label']} - ${((r['confidence'] as double) * 100).toStringAsFixed(1)}%',
-                  style: GoogleFonts.poppins(),
-                  textAlign: TextAlign.center,
-                )),
           ],
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          ElevatedButton(
-            onPressed: () async {
-              final best = results.isNotEmpty ? results.first : null;
-              if (best != null) {
-                final label = best['label'] as String;
-                final confidence = (best['confidence'] as num).toDouble();
-                await _storeLog(label, confidence * 100);
-              }
-              if (mounted) {
-                Navigator.of(context).pop();
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: Text('Store', style: GoogleFonts.poppins()),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.black,
-              side: const BorderSide(color: Colors.black),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: Text('Cancel', style: GoogleFonts.poppins()),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
