@@ -1624,86 +1624,178 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
           final logs = snapshot.data ?? [];
 
+          // Prepare data for detections-per-class graph
+          const classNames = [
+            'Button Mushroom',
+            'Oyster Mushroom',
+            'Enoki Mushroom',
+            'Morel Mushroom',
+            'Chanterelle Mushroom',
+            'Black Trumpet Mushroom',
+            'Fly Agaric Mushroom',
+            'Reishi Mushroom',
+            'Coral Fungus',
+            'Bleeding Tooth Fungus',
+          ];
+
+          final Map<String, int> countsByClass = {};
+          for (final log in logs) {
+            final classType = (log['classType'] ?? '').toString();
+            if (classType.isEmpty) continue;
+            countsByClass[classType] = (countsByClass[classType] ?? 0) + 1;
+          }
+
+          final spots = <FlSpot>[];
+          for (int i = 0; i < classNames.length; i++) {
+            final count = countsByClass[classNames[i]] ?? 0;
+            spots.add(FlSpot(i.toDouble(), count.toDouble()));
+          }
+
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Graph Section
-                  GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => GraphDetailPage(logs: logs),
-                    ),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  height: 330,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.black, width: 3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(2, 2),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
+                  // Graph Section: inline detections-per-class chart (no box)
+                  Align(
+                    alignment: Alignment.topLeft,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            Text(
-                              'Graph',
-                              style: GoogleFonts.poppins(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Tap here for more details',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: Colors.black54,
-                                ),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.arrow_forward_ios,
-                              size: 24,
-                            ),
-                          ],
+                        Text(
+                          'Detections per class',
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Shows how many times each class was detected',
+                          style: GoogleFonts.poppins(fontSize: 12, color: Colors.black54),
                         ),
                         const SizedBox(height: 16),
-                        Container(
-                          height: 150,
-                          child: Center(
-                            child: Text(
-                              'Analytics placeholder\n(Graph will appear here)',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
+                        SizedBox(
+                          height: 260,
+                          child: classNames.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'No logs yet to display.',
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  ),
+                                )
+                              : Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: LineChart(
+                                    LineChartData(
+                                      minX: 0,
+                                      maxX: spots.isNotEmpty ? spots.last.x : 0,
+                                      minY: 0,
+                                      maxY: spots.isNotEmpty
+                                          ? spots
+                                                  .map((s) => s.y)
+                                                  .reduce((a, b) => a > b ? a : b) +
+                                              1
+                                          : 1,
+                                      gridData: FlGridData(show: true),
+                                      borderData: FlBorderData(
+                                        show: true,
+                                        border: const Border(
+                                          left: BorderSide(color: Colors.black54, width: 1),
+                                          bottom: BorderSide(color: Colors.black54, width: 1),
+                                          right: BorderSide(color: Colors.transparent),
+                                          top: BorderSide(color: Colors.transparent),
+                                        ),
+                                      ),
+                                      titlesData: FlTitlesData(
+                                        topTitles:
+                                            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                        rightTitles:
+                                            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                        leftTitles: AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: true,
+                                            reservedSize: 32,
+                                            getTitlesWidget: (value, meta) {
+                                              if (value % 1 != 0) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              return Text(
+                                                value.toInt().toString(),
+                                                style: GoogleFonts.poppins(fontSize: 10),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                        bottomTitles: AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: true,
+                                            reservedSize: 40,
+                                            interval: 1,
+                                            getTitlesWidget: (value, meta) {
+                                              final index = value.toInt();
+                                              if (index < 0 || index >= classNames.length) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              final fullLabel = classNames[index];
+                                              var label = fullLabel
+                                                  .replaceAll(' Mushroom', '')
+                                                  .replaceAll(' Fungus', '');
+                                              return Padding(
+                                                padding: const EdgeInsets.only(top: 4),
+                                                child: Transform.rotate(
+                                                  angle: -math.pi / 4,
+                                                  child: Text(
+                                                    label,
+                                                    style: GoogleFonts.poppins(fontSize: 9),
+                                                    textAlign: TextAlign.center,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      lineTouchData: LineTouchData(
+                                        touchTooltipData: LineTouchTooltipData(
+                                          getTooltipItems: (touchedSpots) {
+                                            return touchedSpots
+                                                .map((barSpot) => LineTooltipItem(
+                                                      barSpot.y.toInt().toString(),
+                                                      TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ))
+                                                .toList();
+                                          },
+                                        ),
+                                      ),
+                                      lineBarsData: [
+                                        LineChartBarData(
+                                          spots: spots,
+                                          isCurved: true,
+                                          color: Theme.of(context).primaryColor,
+                                          barWidth: 3,
+                                          dotData: FlDotData(show: true),
+                                          belowBarData: BarAreaData(
+                                            show: true,
+                                            color: Theme.of(context)
+                                                .primaryColor
+                                                .withOpacity(0.2),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
+                  const SizedBox(height: 16),
               const SizedBox(height: 16),
               
               // History Section
