@@ -308,7 +308,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final ImagePicker _picker = ImagePicker();
-  bool _picking = false;
+  bool _picking = false; // upload photo
+  bool _scanning = false; // scan via camera
   final Classifier _classifier = Classifier();
   bool _showDictionary = false;
   int _uploadCountdown = 0;
@@ -503,9 +504,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _scanWithSystemCamera() async {
-    if (_picking || !mounted) return;
+    if (_scanning || !mounted) return;
     setState(() {
-      _picking = true;
+      _scanning = true;
     });
     try {
       final picked = await _picker.pickImage(source: ImageSource.camera);
@@ -522,7 +523,7 @@ class _HomePageState extends State<HomePage> {
     } finally {
       if (!mounted) return;
       setState(() {
-        _picking = false;
+        _scanning = false;
       });
     }
   }
