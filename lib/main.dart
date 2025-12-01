@@ -12,6 +12,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
@@ -336,38 +338,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _runClassificationAndShow(File file) async {
     await _classifier.load();
-    final start = DateTime.now();
-    List<double>? sum;
-    int count = 0;
-    if (mounted) {
-      setState(() {
-        _uploadCountdown = 5;
-      });
-    }
-    while (DateTime.now().difference(start).inSeconds < 5) {
-      final probs = await _classifier.classifyProbs(file);
-      sum ??= List.filled(probs.length, 0.0);
-      for (int i = 0; i < probs.length; i++) {
-        sum[i] += probs[i];
-      }
-      count++;
-      final elapsed = DateTime.now().difference(start).inSeconds;
-      final remaining = (5 - elapsed).clamp(0, 5);
-      if (mounted) {
-        setState(() {
-          _uploadCountdown = remaining;
-        });
-      }
-      await Future.delayed(const Duration(milliseconds: 600));
-    }
-    if (mounted) {
-      setState(() {
-        _uploadCountdown = 0;
-      });
-    }
-    final avg = sum!.map((v) => v / count).toList();
-    final total = avg.fold<double>(0, (s, v) => s + v);
-    final probs = total == 0 ? avg : avg.map((v) => v / total).toList();
+    final probs = await _classifier.classifyProbs(file);
     final results = <Map<String, dynamic>>[];
     for (int i = 0; i < probs.length; i++) {
       results.add({'label': i < _classifier._labels.length ? _classifier._labels[i] : 'Class $i', 'index': i, 'confidence': probs[i]});
@@ -425,98 +396,71 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 8),
               SizedBox(
-                height: 180,
+                height: 160,
                 width: double.infinity,
-                child: BarChart(
-                  BarChartData(
-                    minY: 0,
-                    maxY: 100,
-                    gridData: FlGridData(show: true),
-                    borderData: FlBorderData(show: false),
-                    barTouchData: BarTouchData(enabled: false),
-                    titlesData: FlTitlesData(
-                      topTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 24,
-                          getTitlesWidget: (value, meta) {
-                            final index = value.toInt();
-                            if (index < 0 || index >= classNames.length) {
-                              return const SizedBox.shrink();
-                            }
-                            final fullLabel = classNames[index];
-                            final percent = (confidenceByLabel[fullLabel] ?? 0.0) * 100.0;
-                            final percentText = percent == 0
-                                ? '0'
-                                : percent.toStringAsFixed(2);
-                            return Text(
-                              percentText,
-                              style: GoogleFonts.poppins(fontSize: 9),
-                              textAlign: TextAlign.center,
-                            );
-                          },
-                        ),
-                      ),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 28,
-                          getTitlesWidget: (value, meta) {
-                            if (value % 25 != 0) return const SizedBox.shrink();
-                            return Text(
-                              value.toInt().toString(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: classNames.map((fullLabel) {
+                    final shortLabel = fullLabel
+                        .replaceAll(' Mushroom', '')
+                        .replaceAll(' Fungus', '');
+                    final percent = (confidenceByLabel[fullLabel] ?? 0.0) * 100.0;
+                    final percentText = percent == 0
+                        ? '0'
+                        : percent.toStringAsFixed(2);
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 1),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 70,
+                            child: Text(
+                              shortLabel,
                               style: GoogleFonts.poppins(fontSize: 10),
-                            );
-                          },
-                        ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          interval: 1,
-                          getTitlesWidget: (value, meta) {
-                            final index = value.toInt();
-                            if (index < 0 || index >= classNames.length) {
-                              return const SizedBox.shrink();
-                            }
-                            final fullLabel = classNames[index];
-                            final shortLabel = fullLabel
-                                .replaceAll(' Mushroom', '')
-                                .replaceAll(' Fungus', '');
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Transform.rotate(
-                                angle: -math.pi / 4,
-                                child: Text(
-                                  shortLabel,
-                                  style: GoogleFonts.poppins(fontSize: 8),
-                                  textAlign: TextAlign.center,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    barGroups: List.generate(classNames.length, (index) {
-                      final label = classNames[index];
-                      final percent = (confidenceByLabel[label] ?? 0.0) * 100.0;
-                      return BarChartGroupData(
-                        x: index,
-                        barRods: [
-                          BarChartRodData(
-                            toY: percent,
-                            color: Theme.of(context).primaryColor,
-                            width: 6,
-                            borderRadius: BorderRadius.circular(3),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final maxWidth = constraints.maxWidth;
+                                final barWidth = (percent.clamp(0, 100) / 100.0) * maxWidth;
+                                return Stack(
+                                  children: [
+                                    Container(
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade300,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    ),
+                                    Container(
+                                      height: 6,
+                                      width: barWidth,
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).primaryColor,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          SizedBox(
+                            width: 40,
+                            child: Text(
+                              percentText,
+                              style: GoogleFonts.poppins(fontSize: 10),
+                              textAlign: TextAlign.right,
+                            ),
                           ),
                         ],
-                      );
-                    }),
-                  ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
             ],
@@ -556,6 +500,31 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
+  }
+
+  Future<void> _scanWithSystemCamera() async {
+    if (_picking || !mounted) return;
+    setState(() {
+      _picking = true;
+    });
+    try {
+      final picked = await _picker.pickImage(source: ImageSource.camera);
+      if (!mounted) return;
+      if (picked == null) {
+        return;
+      }
+      await _runClassificationAndShow(File(picked.path));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to scan: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _picking = false;
+      });
+    }
   }
 
   @override
@@ -775,34 +744,7 @@ class _HomePageState extends State<HomePage> {
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                   ),
-                                  onPressed: () {
-                                    Navigator.of(context).push(
-                                      PageRouteBuilder(
-                                        transitionDuration:
-                                            const Duration(milliseconds: 400),
-                                        pageBuilder: (context, animation,
-                                                secondaryAnimation) =>
-                                            const CameraPage(),
-                                        transitionsBuilder: (
-                                          context,
-                                          animation,
-                                          secondaryAnimation,
-                                          child,
-                                        ) {
-                                          final tween = Tween(
-                                            begin: const Offset(0, 1),
-                                            end: Offset.zero,
-                                          ).chain(
-                                            CurveTween(curve: Curves.easeInOut),
-                                          );
-                                          return SlideTransition(
-                                            position: animation.drive(tween),
-                                            child: child,
-                                          );
-                                        },
-                                      ),
-                                    );
-                                  },
+                                  onPressed: _scanWithSystemCamera,
                                   icon:
                                       const Icon(Icons.camera_alt_outlined),
                                   label: Text(
@@ -1381,39 +1323,23 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
 extension _CameraScanActions on _CameraPageState {
   Future<void> _scanAndClassifyFor10s() async {
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) return;
     setState(() {
       _processing = true;
-      _countdown = 5;
+      _countdown = 0;
     });
     try {
       await _classifier.load();
-      final end = DateTime.now().add(const Duration(seconds: 5));
-      List<double>? sum;
-      int count = 0;
-      int lastSecond = 5;
-      while (DateTime.now().isBefore(end)) {
-        // Update countdown once per second
-        final rem = end.difference(DateTime.now()).inSeconds + 1;
-        if (rem != lastSecond && mounted) {
-          setState(() => _countdown = rem.clamp(0, 5));
-          lastSecond = rem;
-        }
 
-        // Capture a frame and classify
-        final xfile = await controller.takePicture();
-        final probs = await _classifier.classifyProbs(File(xfile.path));
-        sum ??= List.filled(probs.length, 0.0);
-        for (int i = 0; i < probs.length; i++) {
-          sum[i] += probs[i];
-        }
-        count++;
-        await Future.delayed(const Duration(milliseconds: 500));
+      // Use system camera (native camera app)
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.camera);
+      if (!mounted) return;
+      if (picked == null) {
+        // User cancelled
+        return;
       }
 
-      final avg = sum?.map((v) => v / (count == 0 ? 1 : count)).toList() ?? [];
-      final probs = softmax(avg);
+      final probs = await _classifier.classifyProbs(File(picked.path));
       final results = <Map<String, dynamic>>[];
       for (int i = 0; i < probs.length; i++) {
         results.add({'label': i < _classifier._labels.length ? _classifier._labels[i] : 'Class $i', 'index': i, 'confidence': probs[i]});
@@ -1421,24 +1347,125 @@ extension _CameraScanActions on _CameraPageState {
       results.sort((a, b) => (b['confidence'] as double).compareTo(a['confidence'] as double));
       if (!mounted) return;
       final best = results.isNotEmpty ? results.first : null;
+
+      // Same fixed class list as upload dialog
+      const classNames = [
+        'Button Mushroom',
+        'Oyster Mushroom',
+        'Enoki Mushroom',
+        'Morel Mushroom',
+        'Chanterelle Mushroom',
+        'Black Trumpet Mushroom',
+        'Fly Agaric Mushroom',
+        'Reishi Mushroom',
+        'Coral Fungus',
+        'Bleeding Tooth Fungus',
+      ];
+
+      // Map label -> confidence
+      final Map<String, double> confidenceByLabel = {};
+      for (final r in results) {
+        final label = r['label'] as String;
+        final conf = (r['confidence'] as num).toDouble();
+        confidenceByLabel[label] = conf;
+      }
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Result:', style: GoogleFonts.poppins(fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+          title: Text(
+            'Result:',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+            textAlign: TextAlign.center,
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (best != null)
-                Text('${best['label']}', style: GoogleFonts.titanOne(fontSize: 24, color: Theme.of(context).primaryColor), textAlign: TextAlign.center),
+                Text(
+                  '${best['label']}',
+                  style: GoogleFonts.titanOne(
+                    fontSize: 24,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              const SizedBox(height: 12),
+              Text(
+                'Prediction distribution',
+                style: GoogleFonts.poppins(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
-              Text('Top 3 prediction:', style: GoogleFonts.poppins(), textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              ...results.take(3).map((r) => Text(
-                    '${r['label']} - ${((r['confidence'] as num) * 100).toStringAsFixed(1)}%',
-                    style: GoogleFonts.poppins(),
-                    textAlign: TextAlign.center,
-                  )),
+              SizedBox(
+                height: 160,
+                width: double.infinity,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: classNames.map((fullLabel) {
+                    final shortLabel = fullLabel
+                        .replaceAll(' Mushroom', '')
+                        .replaceAll(' Fungus', '');
+                    final percent = (confidenceByLabel[fullLabel] ?? 0.0) * 100.0;
+                    final percentText = percent == 0
+                        ? '0'
+                        : percent.toStringAsFixed(2);
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 1),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 70,
+                            child: Text(
+                              shortLabel,
+                              style: GoogleFonts.poppins(fontSize: 10),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final maxWidth = constraints.maxWidth;
+                                final barWidth = (percent.clamp(0, 100) / 100.0) * maxWidth;
+                                return Stack(
+                                  children: [
+                                    Container(
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade300,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    ),
+                                    Container(
+                                      height: 6,
+                                      width: barWidth,
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).primaryColor,
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          SizedBox(
+                            width: 40,
+                            child: Text(
+                              percentText,
+                              style: GoogleFonts.poppins(fontSize: 10),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             ],
           ),
           actionsAlignment: MainAxisAlignment.center,
